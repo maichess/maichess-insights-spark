@@ -1,0 +1,54 @@
+package maichess.insights.ingest
+
+import maichess.insights.filter.CorpusFilter
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+class JobArgsSpec extends AnyFlatSpec with Matchers {
+
+  "parse" should "read a Lichess ingestion with filter + replay" in {
+    val a = JobArgs.parse(Array(
+      "--corpus-id", "lichess-2024-12-blitz",
+      "--source-type", "lichess",
+      "--lichess-month", "2024-12",
+      "--rating-band", "1600-1999",
+      "--time-control", "blitz",
+      "--sample-rate", "0.15",
+      "--replay", "true",
+    ))
+    a.corpusId shouldBe "lichess-2024-12-blitz"
+    a.source shouldBe SourceDescriptor.LichessMonth("2024-12")
+    a.filter shouldBe CorpusFilter(Some("1600-1999"), Some("blitz"), None, None, 0.15)
+    a.replayBoard shouldBe true
+    a.rawBucket shouldBe "insights-raw"
+    a.parsedBucket shouldBe "insights-parsed"
+  }
+
+  it should "read an upload ingestion with defaults" in {
+    val a = JobArgs.parse(Array(
+      "--corpus-id", "upload-7",
+      "--source-type", "upload",
+      "--upload-key", "uploads/x.pgn",
+    ))
+    a.source shouldBe SourceDescriptor.Upload("uploads/x.pgn")
+    a.filter.sampleRate shouldBe 0.0
+    a.replayBoard shouldBe false
+  }
+
+  it should "reject an unknown or missing source type" in {
+    an[IllegalArgumentException] should be thrownBy
+      JobArgs.parse(Array("--corpus-id", "c", "--source-type", "ftp"))
+    an[IllegalArgumentException] should be thrownBy
+      JobArgs.parse(Array("--corpus-id", "c"))
+  }
+
+  it should "reject a missing required key" in {
+    an[IllegalArgumentException] should be thrownBy
+      JobArgs.parse(Array("--source-type", "lichess", "--lichess-month", "2024-12"))
+  }
+
+  "toMap" should "treat a bare flag as true" in {
+    JobArgs.toMap(Array("--replay", "--corpus-id", "c")) shouldBe
+      Map("replay" -> "true", "corpus-id" -> "c")
+  }
+}
