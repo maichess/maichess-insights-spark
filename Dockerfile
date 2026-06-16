@@ -79,9 +79,12 @@ RUN cd "${SPARK_HOME}/jars" && \
 # The insights jobs fat jar.
 COPY --from=build /app/app.jar ${SPARK_HOME}/jars/maichess-insights-spark.jar
 
-# Run as the non-root spark uid the operator/Spark expect.
-RUN groupadd -g 185 spark && useradd -u 185 -g 185 -m spark
+# Run as the non-root spark uid the operator/Spark expect. The k8s entrypoint writes
+# java_opts.txt into the CWD, so it must be a writable dir owned by uid 185 — /opt/spark
+# (SPARK_HOME) is root-owned. Use a dedicated work-dir like the official apache/spark image.
+RUN groupadd -g 185 spark && useradd -u 185 -g 185 -m spark && \
+    mkdir -p ${SPARK_HOME}/work-dir && chown 185:185 ${SPARK_HOME}/work-dir
 USER 185
 
-WORKDIR ${SPARK_HOME}
+WORKDIR ${SPARK_HOME}/work-dir
 ENTRYPOINT ["/opt/entrypoint.sh"]
