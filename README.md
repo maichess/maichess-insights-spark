@@ -12,19 +12,37 @@ See the design docs in `maichess-knowledge-base`:
 
 ## Status
 
-🟡 **Scaffolding (task 02).** This repo currently holds the **container image
-wiring** only — the `Dockerfile` (base + connector jars + assembly COPY) and the
-`docker-publish.yml` workflow. The actual Spark jobs (the sbt project, `build.sbt`,
-and `src/`) land in:
+🟡 **Ingestion + analysis jobs landed (tasks 03, 04).** The sbt project (`build.sbt`,
+`src/`) plus the container image wiring (`Dockerfile`, `docker-publish.yml`) are in
+place:
 
 - **task 03** — ingestion + PGN parser (`.zst` download, decompress-once, parse
-  `%eval`/`%clk` → partitioned Parquet).
-- **task 04** — analysis jobs (opening / endgame / position / tricky → Mongo
-  `insights_*`).
+  `%eval`/`%clk` → partitioned Parquet). Entry point `IngestJob`.
+- **task 04** — analysis jobs (opening / endgame / position / tricky / summary →
+  Mongo `insights_*`, aggregate Parquet cache in `insights-agg`, run recorded in
+  `insights_jobs`). Entry point `AnalysisJob`.
 
-Until task 03 adds the sbt module, `sbt assembly` (and therefore a full image
-build) has nothing to compile — the `docker-publish.yml` workflow is expected to be
-red until then.
+`sbt test` is green; the pure parse/replay/aggregation logic is unit-tested and the
+`local[*]` `SparkSession` transformation suites are tagged `maichess.insights.SparkTest`
+(they run on **Java 17** — Spark 3.5 cannot start a `SparkContext` on Java 18+, so the
+build excludes that tag on a newer dev JVM; CI and the image run Java 17).
+
+## Entry points
+
+The assembly default main is `IngestJob`; the analysis run uses `AnalysisJob`. The
+`SparkApplication` (task 05) selects the class via `mainClass`:
+
+- **`maichess.insights.ingest.IngestJob`** — `--source-type lichess|upload …
+  --corpus-id … [--replay]` → `insights-parsed` Parquet.
+- **`maichess.insights.analysis.AnalysisJob`** — `--corpus-id … --mongo-uri …
+  [--jobs openings,endgames,positions,tricky,summary] [--book-plies N]
+  [--min-reach N] [--min-support N]` → `insights_*` collections + `insights-agg`
+  Parquet + an `insights_jobs` record. Endgame/position jobs need ingestion to have
+  run with `--replay` (they read `fen_before`).
+
+The Spark job mains, the source adapters, and the Mongo sink (`maichess.insights.sink.*`)
+are live-I/O glue, excluded from coverage (`build.sbt`) and mutation (`stryker4s.conf`);
+the pure logic and per-metric jobs carry the bar.
 
 ## Image
 
