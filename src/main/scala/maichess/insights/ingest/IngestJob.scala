@@ -1,7 +1,7 @@
 package maichess.insights.ingest
 
+import com.github.luben.zstd.ZstdInputStream
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.hadoop.io.compress.ZStandardCodec
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.net.URI
@@ -39,7 +39,7 @@ object IngestJob {
       else { copyUrlToFs(raw.uri, rawZst, fs); rawZst }
 
     // 2. Decompress once to a splittable .pgn (single-core zstd decode).
-    if (raw.compressed) decompressZstd(compressedPath, scratch, fs, hadoop)
+    if (raw.compressed) decompressZstd(compressedPath, scratch, fs)
     val splittable = if (raw.compressed) scratch else compressedPath
 
     try {
@@ -72,10 +72,12 @@ object IngestJob {
     finally { in.close(); out.close() }
   }
 
-  private def decompressZstd(src: Path, dest: Path, fs: FileSystem, hadoop: org.apache.hadoop.conf.Configuration): Unit = {
-    val codec = new ZStandardCodec()
-    codec.setConf(hadoop)
-    val in = codec.createInputStream(fs.open(src))
+  // Decompress with zstd-jni (bundled by Spark for its own zstd codec, present in the
+  // runtime image) rather than Hadoop's ZStandardCodec: the image's libhadoop is built
+  // WITHOUT zstd support and the native lib isn't even loaded, so the Hadoop codec throws
+  // "native zStandard library not available". zstd-jni ships its own native lib in the jar.
+  private def decompressZstd(src: Path, dest: Path, fs: FileSystem): Unit = {
+    val in = new ZstdInputStream(fs.open(src))
     val out = fs.create(dest, true)
     try org.apache.hadoop.io.IOUtils.copyBytes(in, out, 1 << 20)
     finally { in.close(); out.close() }

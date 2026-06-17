@@ -23,6 +23,10 @@ lazy val root = (project in file("."))
       "org.apache.spark"     %% "spark-core"           % sparkVersion      % "provided,test",
       "org.apache.spark"     %% "spark-sql"            % sparkVersion      % "provided,test",
       "org.mongodb.spark"    %% "mongo-spark-connector" % mongoSparkVersion % "provided,test",
+      // zstd-jni: decompress the .pgn.zst corpora. Spark bundles this for its own zstd
+      // codec so it is already in the runtime image → provided (out of the assembly),
+      // test for the suites. Pinned to what Spark 3.5.3 ships to avoid a classpath skew.
+      "com.github.luben"     % "zstd-jni"               % "1.5.5-4"         % "provided,test",
       // chesslib IS bundled (not in the image) — compile scope so assembly includes it.
       "com.github.bhlangonijr" % "chesslib"            % chesslibVersion,
       "org.scalatest"        %% "scalatest"            % scalatestVersion  % Test,
