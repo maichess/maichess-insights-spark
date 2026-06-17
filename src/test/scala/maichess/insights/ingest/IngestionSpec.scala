@@ -44,4 +44,16 @@ class IngestionSpec extends AnyFlatSpec with Matchers with SparkSupport {
     )(spark)
     g.count() shouldBe 1
   }
+
+  // Regression: a CRLF upload's "\r\n\r\n[Event " separators don't match IngestJob's
+  // "\n\n[Event " record delimiter, so the whole multi-game file arrives as one record.
+  // splitGames must still split it into the individual games (previously merged into one).
+  it should "split a single CRLF record holding multiple games" taggedAs SparkTest in {
+    val blob = Seq(PgnParserFixtures.game, PgnParserFixtures.blunderGame)
+      .map(_.replace("\n", "\r\n"))
+      .mkString("\r\n\r\n")
+    val (g, p) = Ingestion.transform(gamesDs(blob), "c", CorpusFilter(), replayBoard = false)(spark)
+    g.count() shouldBe 2
+    p.count() shouldBe 8
+  }
 }
