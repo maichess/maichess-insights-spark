@@ -1,6 +1,7 @@
 package maichess.insights.ingest
 
 import com.github.luben.zstd.ZstdInputStream
+import maichess.insights.sink.CorpusGameCount
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
@@ -59,8 +60,11 @@ object IngestJob {
       val base = s"s3a://${cfg.parsedBucket}/${cfg.corpusId}"
       gameDs.write.mode(SaveMode.Overwrite).partitionBy("yearMonth", "ratingBand").parquet(s"$base/games")
       plyDs.write.mode(SaveMode.Overwrite).parquet(s"$base/plies")
+
+      // 5. Fill in the control-plane catalog's game count (created as 0 on submit).
+      cfg.mongoUri.foreach(uri => CorpusGameCount.update(uri, cfg.mongoDb, cfg.corpusId, gameDs.count()))
     } finally {
-      // 5. Delete the decompressed scratch (keep raw + Parquet).
+      // 6. Delete the decompressed scratch (keep raw + Parquet).
       if (raw.compressed && fs.exists(scratch)) fs.delete(scratch, false)
     }
   }

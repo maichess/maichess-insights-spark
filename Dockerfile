@@ -50,6 +50,11 @@ ARG SPARK_VERSION=3.5.3
 ARG HADOOP_AWS_VERSION=3.3.4
 ARG AWS_SDK_BUNDLE_VERSION=1.12.262
 ARG MONGO_SPARK_VERSION=10.4.1
+# mongo-spark-connector 10.4.1 is NOT a fat jar — it depends on the MongoDB Java driver
+# (mongodb-driver-sync/-core + bson, where com.mongodb.WriteConcern lives) at runtime
+# scope, range [5.1.1,5.1.99). Without these the analysis job throws
+# NoClassDefFoundError: com/mongodb/WriteConcern at the first Mongo write.
+ARG MONGO_DRIVER_VERSION=5.1.4
 
 ENV SPARK_HOME=/opt/spark
 ENV PATH="${SPARK_HOME}/bin:${PATH}"
@@ -74,7 +79,10 @@ RUN curl -fL "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark
 RUN cd "${SPARK_HOME}/jars" && \
     curl -fLO "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/${HADOOP_AWS_VERSION}/hadoop-aws-${HADOOP_AWS_VERSION}.jar" && \
     curl -fLO "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/${AWS_SDK_BUNDLE_VERSION}/aws-java-sdk-bundle-${AWS_SDK_BUNDLE_VERSION}.jar" && \
-    curl -fLO "https://repo1.maven.org/maven2/org/mongodb/spark/mongo-spark-connector_2.13/${MONGO_SPARK_VERSION}/mongo-spark-connector_2.13-${MONGO_SPARK_VERSION}.jar"
+    curl -fLO "https://repo1.maven.org/maven2/org/mongodb/spark/mongo-spark-connector_2.13/${MONGO_SPARK_VERSION}/mongo-spark-connector_2.13-${MONGO_SPARK_VERSION}.jar" && \
+    curl -fLO "https://repo1.maven.org/maven2/org/mongodb/mongodb-driver-sync/${MONGO_DRIVER_VERSION}/mongodb-driver-sync-${MONGO_DRIVER_VERSION}.jar" && \
+    curl -fLO "https://repo1.maven.org/maven2/org/mongodb/mongodb-driver-core/${MONGO_DRIVER_VERSION}/mongodb-driver-core-${MONGO_DRIVER_VERSION}.jar" && \
+    curl -fLO "https://repo1.maven.org/maven2/org/mongodb/bson/${MONGO_DRIVER_VERSION}/bson-${MONGO_DRIVER_VERSION}.jar"
 
 # The insights jobs fat jar.
 COPY --from=build /app/app.jar ${SPARK_HOME}/jars/maichess-insights-spark.jar

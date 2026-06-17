@@ -17,6 +17,10 @@ final case class IngestArgs(
     replayBoard: Boolean,
     rawBucket: String,
     parsedBucket: String,
+    // Control-plane catalog Mongo: the job writes back the parsed game count to
+    // insights_corpora.game_count. Empty/absent disables the writeback (e.g. tests).
+    mongoUri: Option[String],
+    mongoDb: String,
 )
 
 /** Pure `--key value` argument parsing for [[IngestJob]]. Kept separate from the
@@ -47,6 +51,8 @@ object JobArgs {
       replayBoard = m.get("replay").exists(v => v == "true" || v == "1"),
       rawBucket = m.getOrElse("raw-bucket", "insights-raw"),
       parsedBucket = m.getOrElse("parsed-bucket", "insights-parsed"),
+      mongoUri = m.get("mongo-uri").filter(_.nonEmpty),
+      mongoDb = m.getOrElse("mongo-db", "maichess"),
     )
   }
 

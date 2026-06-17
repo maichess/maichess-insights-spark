@@ -15,6 +15,8 @@ class JobArgsSpec extends AnyFlatSpec with Matchers {
       "--time-control", "blitz",
       "--sample-rate", "0.15",
       "--replay", "true",
+      "--mongo-uri", "mongodb://mongo:27017",
+      "--mongo-db", "maichess",
     ))
     a.corpusId shouldBe "lichess-2024-12-blitz"
     a.source shouldBe SourceDescriptor.LichessMonth("2024-12")
@@ -22,6 +24,8 @@ class JobArgsSpec extends AnyFlatSpec with Matchers {
     a.replayBoard shouldBe true
     a.rawBucket shouldBe "insights-raw"
     a.parsedBucket shouldBe "insights-parsed"
+    a.mongoUri shouldBe Some("mongodb://mongo:27017")
+    a.mongoDb shouldBe "maichess"
   }
 
   it should "read an upload ingestion with defaults" in {
@@ -33,6 +37,8 @@ class JobArgsSpec extends AnyFlatSpec with Matchers {
     a.source shouldBe SourceDescriptor.Upload("uploads/x.pgn")
     a.filter.sampleRate shouldBe 0.0
     a.replayBoard shouldBe false
+    a.mongoUri shouldBe None
+    a.mongoDb shouldBe "maichess"
   }
 
   it should "reject an unknown or missing source type" in {

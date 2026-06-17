@@ -27,6 +27,11 @@ lazy val root = (project in file("."))
       // codec so it is already in the runtime image → provided (out of the assembly),
       // test for the suites. Pinned to what Spark 3.5.3 ships to avoid a classpath skew.
       "com.github.luben"     % "zstd-jni"               % "1.5.5-4"         % "provided,test",
+      // MongoDB Java driver: the ingest job point-updates insights_corpora.game_count.
+      // The connector pulls it transitively at runtime; declare it explicitly (matching
+      // the image's version) so com.mongodb.client.* is on the compile/test classpath.
+      // provided → already in the image, kept out of the assembly.
+      "org.mongodb"          % "mongodb-driver-sync"   % "5.1.4"           % "provided,test",
       // chesslib IS bundled (not in the image) — compile scope so assembly includes it.
       "com.github.bhlangonijr" % "chesslib"            % chesslibVersion,
       "org.scalatest"        %% "scalatest"            % scalatestVersion  % Test,
