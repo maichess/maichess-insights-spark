@@ -28,35 +28,32 @@ object AnalysisJob {
   def run(cfg: AnalysisArgs)(implicit spark: SparkSession): Unit = {
     import spark.implicits._
     val sink = new MongoSink(cfg.mongoUri, cfg.mongoDb)
-    val startedAt = System.currentTimeMillis()
 
     val base = s"s3a://${cfg.parsedBucket}/${cfg.corpusId}"
     val games: Dataset[GameRow] = spark.read.parquet(s"$base/games").as[GameRow]
     val plies: Dataset[PlyRow] = spark.read.parquet(s"$base/plies").as[PlyRow]
 
-    try {
-      cfg.jobs.foreach {
-        case MetricJob.Openings =>
-          val r = OpeningStats.compute(games, cfg.corpusId)
-          sink.write(r, "insights_openings"); cacheAgg(r, cfg, "openings")
-        case MetricJob.Endgames =>
-          val r = EndgameStats.compute(games, plies, cfg.corpusId)
-          sink.write(r, "insights_endgames"); cacheAgg(r, cfg, "endgames")
-        case MetricJob.Positions =>
-          val r = PositionFrequency.compute(games, plies, cfg.corpusId, cfg.bookPlies, cfg.minReach)
-          sink.write(r, "insights_positions"); cacheAgg(r, cfg, "positions")
-        case MetricJob.Tricky =>
-          val r = TrickyPositions.compute(plies, cfg.corpusId, cfg.minSupport)
-          sink.write(r, "insights_tricky"); cacheAgg(r, cfg, "tricky")
-        case MetricJob.Summary =>
-          val r = Summary.compute(games, plies, cfg.corpusId)
-          sink.append(r, "insights_summary")
-      }
-      sink.append(record(cfg, startedAt, "succeeded", ""), "insights_jobs")
-    } catch {
-      case e: Throwable =>
-        sink.append(record(cfg, startedAt, "failed", e.getMessage), "insights_jobs")
-        throw e
+    // Job lifecycle status is owned by the control plane's SparkStatusReconciler (it maps
+    // the SparkApplication state to the insights_jobs record by jobId via the k8s watch).
+    // The Spark side does NOT write insights_jobs: a connector append created a document
+    // with an ObjectId _id + camelCase fields, which the control plane's catalog (string
+    // _id, snake_case) could not read — breaking the whole job/metric listing.
+    cfg.jobs.foreach {
+      case MetricJob.Openings =>
+        val r = OpeningStats.compute(games, cfg.corpusId)
+        sink.write(r, "insights_openings"); cacheAgg(r, cfg, "openings")
+      case MetricJob.Endgames =>
+        val r = EndgameStats.compute(games, plies, cfg.corpusId)
+        sink.write(r, "insights_endgames"); cacheAgg(r, cfg, "endgames")
+      case MetricJob.Positions =>
+        val r = PositionFrequency.compute(games, plies, cfg.corpusId, cfg.bookPlies, cfg.minReach)
+        sink.write(r, "insights_positions"); cacheAgg(r, cfg, "positions")
+      case MetricJob.Tricky =>
+        val r = TrickyPositions.compute(plies, cfg.corpusId, cfg.minSupport)
+        sink.write(r, "insights_tricky"); cacheAgg(r, cfg, "tricky")
+      case MetricJob.Summary =>
+        val r = Summary.compute(games, plies, cfg.corpusId)
+        sink.append(r, "insights_summary")
     }
   }
 
@@ -66,16 +63,4 @@ object AnalysisJob {
     rows.write
       .mode(SaveMode.Overwrite)
       .parquet(s"s3a://${cfg.aggBucket}/${cfg.corpusId}/$name")
-
-  private def record(cfg: AnalysisArgs, startedAt: Long, status: String, error: String): JobRecord =
-    JobRecord(
-      jobId = cfg.jobId,
-      corpusId = cfg.corpusId,
-      jobType = "analysis",
-      status = status,
-      sparkApplication = cfg.sparkApplication,
-      startedAtMs = startedAt,
-      finishedAtMs = System.currentTimeMillis(),
-      error = error,
-    )
 }

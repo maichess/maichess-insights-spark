@@ -61,15 +61,3 @@ final case class SummaryStat(
 )
 
 final case class Count(key: String, gameCount: Long)
-
-/** insights_jobs (job lifecycle record written by the Spark side). */
-final case class JobRecord(
-    jobId: String,
-    corpusId: String,
-    jobType: String,
-    status: String,
-    sparkApplication: String,
-    startedAtMs: Long,
-    finishedAtMs: Long,
-    error: String,
-)
