@@ -1,5 +1,41 @@
 # Contract Notes — maichess-insights-spark
 
+## Proposed: `IngestionSource` arm for tournament analytics exports
+
+The Spark module can now ingest a finished tournament's analytics export
+(`--source-type tournament --tournament-server <url> --tournament-id <id>` →
+`SourceDescriptor.TournamentExport`). It fetches the tournament server's public
+`GET /api/tournament/{id}/analytics-export` (`schemaVersion "1.0"`), replays the
+UCI games for SAN + `fen_before`, and writes the same `insights-parsed` layout the
+analysis jobs read — so the existing position/endgame/summary jobs run over a
+tournament corpus unchanged. This is fully driven by the job CLI today, so the
+SparkApplication can submit it directly.
+
+To expose it through the **control plane** (`SubmitIngestion`), the
+`insights-service` proto needs a third `IngestionSource.source` arm. **Not changed
+yet** (contract policy — needs explicit approval + a contract publish). Proposed
+minimal addition to `protos/insights-service/v1/insights.proto`:
+
+```proto
+message IngestionSource {
+  oneof source {
+    LichessMonth lichess_month = 1;
+    PgnUpload upload = 2;
+    TournamentExport tournament_export = 3;   // new
+  }
+}
+
+// A finished tournament's analytics export on an external tournament server.
+message TournamentExport {
+  string server_url = 1;     // tournament server base URL
+  string tournament_id = 2;  // tournament to export
+}
+```
+
+The control plane would map this arm to the `--source-type tournament
+--tournament-server --tournament-id` CLI args this module already parses. No change
+to the Spark module is needed when that lands.
+
 ## Pending: `Maichess.PlatformProtos` (Scala) v0.14.0 publish
 
 The Spark jobs (tasks 03/04) will consume the insights event/query types from the

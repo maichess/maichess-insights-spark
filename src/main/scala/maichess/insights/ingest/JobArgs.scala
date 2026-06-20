@@ -7,6 +7,9 @@ sealed trait SourceDescriptor
 object SourceDescriptor {
   final case class LichessMonth(yearMonth: String) extends SourceDescriptor
   final case class Upload(objectKey: String) extends SourceDescriptor
+  // A finished tournament's analytics export, fetched live from a tournament
+  // server (`GET {serverUrl}/api/tournament/{tournamentId}/analytics-export`).
+  final case class TournamentExport(serverUrl: String, tournamentId: String) extends SourceDescriptor
 }
 
 /** Parsed ingestion-job arguments. */
@@ -35,6 +38,11 @@ object JobArgs {
         SourceDescriptor.LichessMonth(require(m, "lichess-month"))
       case Some("upload") =>
         SourceDescriptor.Upload(require(m, "upload-key"))
+      case Some("tournament") =>
+        SourceDescriptor.TournamentExport(
+          serverUrl = require(m, "tournament-server"),
+          tournamentId = require(m, "tournament-id"),
+        )
       case other =>
         throw new IllegalArgumentException(s"unknown or missing --source-type: ${other.getOrElse("")}")
     }

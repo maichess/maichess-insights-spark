@@ -32,8 +32,15 @@ build excludes that tag on a newer dev JVM; CI and the image run Java 17).
 The assembly default main is `IngestJob`; the analysis run uses `AnalysisJob`. The
 `SparkApplication` (task 05) selects the class via `mainClass`:
 
-- **`maichess.insights.ingest.IngestJob`** — `--source-type lichess|upload …
-  --corpus-id … [--replay]` → `insights-parsed` Parquet.
+- **`maichess.insights.ingest.IngestJob`** — `--source-type lichess|upload|tournament …
+  --corpus-id … [--replay]` → `insights-parsed` Parquet. The `tournament` source
+  (`--source-type tournament --tournament-server <url> --tournament-id <id>`) fetches
+  a finished tournament's public `analytics-export` (`schemaVersion "1.0"`), replays
+  its UCI games for SAN + `fen_before`, and writes the same parsed layout — so the
+  analysis jobs run over a tournament corpus unchanged (board replay is always on for
+  this source; a tournament is tiny next to a Lichess dump). Tournament games carry no
+  Elo, ECO, or per-move eval/clock, so rating-band/opening/blunder/think-time metrics
+  are empty for them — the value is in the position/endgame/summary jobs.
 - **`maichess.insights.analysis.AnalysisJob`** — `--corpus-id … --mongo-uri …
   [--jobs openings,endgames,positions,tricky,summary] [--book-plies N]
   [--min-reach N] [--min-support N]` → `insights_*` collections + `insights-agg`

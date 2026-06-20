@@ -34,6 +34,11 @@ lazy val root = (project in file("."))
       "org.mongodb"          % "mongodb-driver-sync"   % "5.1.4"           % "provided,test",
       // chesslib IS bundled (not in the image) — compile scope so assembly includes it.
       "com.github.bhlangonijr" % "chesslib"            % chesslibVersion,
+      // jackson-databind: parse the tournament analytics-export JSON (tree model).
+      // Spark already bundles this in the runtime image → provided (out of the
+      // assembly); pinned to Spark 3.5.3's Jackson to avoid a classpath skew, and in
+      // test scope so the pure parser suite runs on any JVM.
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.15.2"        % "provided,test",
       "org.scalatest"        %% "scalatest"            % scalatestVersion  % Test,
     ),
 

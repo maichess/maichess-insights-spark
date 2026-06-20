@@ -41,6 +41,24 @@ class JobArgsSpec extends AnyFlatSpec with Matchers {
     a.mongoDb shouldBe "maichess"
   }
 
+  it should "read a tournament-export ingestion" in {
+    val a = JobArgs.parse(Array(
+      "--corpus-id", "tournament-t7kXq2",
+      "--source-type", "tournament",
+      "--tournament-server", "https://nowchess.example.de",
+      "--tournament-id", "t7kXq2",
+    ))
+    a.source shouldBe SourceDescriptor.TournamentExport("https://nowchess.example.de", "t7kXq2")
+    a.corpusId shouldBe "tournament-t7kXq2"
+  }
+
+  it should "reject a tournament source missing the server or id" in {
+    an[IllegalArgumentException] should be thrownBy
+      JobArgs.parse(Array("--corpus-id", "c", "--source-type", "tournament", "--tournament-id", "t1"))
+    an[IllegalArgumentException] should be thrownBy
+      JobArgs.parse(Array("--corpus-id", "c", "--source-type", "tournament", "--tournament-server", "https://x"))
+  }
+
   it should "reject an unknown or missing source type" in {
     an[IllegalArgumentException] should be thrownBy
       JobArgs.parse(Array("--corpus-id", "c", "--source-type", "ftp"))

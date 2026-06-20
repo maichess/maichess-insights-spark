@@ -18,5 +18,9 @@ object SourceResolver {
       RawSource(lichessUrl(ym), compressed = true)
     case SourceDescriptor.Upload(key) =>
       RawSource(s"s3a://$rawBucket/$key", compressed = key.endsWith(".zst"))
+    case _: SourceDescriptor.TournamentExport =>
+      // Tournament exports are a JSON document fetched directly by IngestJob, not a
+      // PGN(.zst) staged in MinIO, so they never go through RawSource resolution.
+      throw new IllegalArgumentException("tournament-export sources are ingested directly, not via SourceResolver")
   }
 }

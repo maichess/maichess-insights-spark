@@ -17,4 +17,9 @@ class SourceResolverSpec extends AnyFlatSpec with Matchers {
     SourceResolver.resolve(SourceDescriptor.Upload("uploads/a.pgn.zst"), "raw") shouldBe
       RawSource("s3a://raw/uploads/a.pgn.zst", compressed = true)
   }
+
+  "resolve" should "reject a tournament-export source (ingested directly, not via MinIO)" in {
+    an[IllegalArgumentException] should be thrownBy
+      SourceResolver.resolve(SourceDescriptor.TournamentExport("https://x", "t1"), "insights-raw")
+  }
 }
